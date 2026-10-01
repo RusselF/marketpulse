@@ -3,6 +3,7 @@ import sys
 
 from marketpulse.db import connect, upsert_products
 from marketpulse.sources import books_toscrape, dummyjson
+from marketpulse.validation import validate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("marketpulse")
@@ -24,8 +25,11 @@ def main() -> None:
         for name in names:
             try:
                 items = SOURCES[name]()
-                n = upsert_products(conn, items)
-                results[name] = f"ok ({n} rows)"
+                valid, rejected = validate(items)
+                for r in rejected:
+                    log.warning("reject %s/%s: %s", r.product.source, r.product.external_id, r.reason)
+                n = upsert_products(conn, valid)
+                results[name] = f"ok ({n} rows, {len(rejected)} rejected)"
             except Exception:
                 log.exception("source %s gagal", name)
                 results[name] = "FAILED"
