@@ -54,16 +54,6 @@ class ResilientClient:
     def __exit__(self, *exc) -> None:
         self._client.close()
 
-    def _delay(self, attempt: int, resp: httpx.Response | None) -> float:
-        # Server meminta jeda eksplisit? Patuhi.
-        if resp is not None and resp.status_code == 429:
-            retry_after = resp.headers.get("Retry-After", "")
-            if retry_after.isdigit():
-                return min(float(retry_after), self.backoff_cap)
-        # Exponential backoff dengan "full jitter"
-        ceiling = min(self.backoff_cap, self.backoff_base * 2**attempt)
-        return random.uniform(0, ceiling)
-
     def get(self, url: str, **kwargs) -> httpx.Response:
         for attempt in range(self.max_retries + 1):
             self._limiter.wait()
@@ -79,7 +69,7 @@ class ResilientClient:
                     return resp  # sukses, error permanen (404), atau jatah retry habis
                 reason = f"HTTP {resp.status_code}"
 
-            delay = self._delay(attempt, resp)
+            delay = backoff_delay(attempt, resp, self.backoff_base, self.backoff_cap)
             log.warning(
                 "retry %d/%d untuk %s (%s), tunggu %.2fs",
                 attempt + 1, self.max_retries, url, reason, delay,
@@ -87,6 +77,13 @@ class ResilientClient:
             self._sleep(delay)
 
         raise RuntimeError("tidak tercapai")
+
+def backoff_delay(attempt: int, resp: httpx.Response | None, base: float, cap: float) -> float:
+    if resp is not None and resp.status_code == 429:
+        retry_after = resp.headers.get("Retry-After", "")
+        if retry_after.isdigit():
+            return min(float(retry_after), cap)
+    return random.uniform(0, min(cap, base * 2**attempt))
 
 
 def make_client(base_url: str = "") -> ResilientClient:
