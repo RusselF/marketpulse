@@ -51,6 +51,7 @@ def parse_listing(html: bytes, page_url: str) -> tuple[list[Product], str | None
                     "url": detail_url,
                     "rating": rating,
                     "availability": avail_el.get_text(strip=True) if avail_el else None,
+                    "html": str(card),
                 },
             )
         )

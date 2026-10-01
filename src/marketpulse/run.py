@@ -2,10 +2,12 @@ import logging
 import sys
 
 from marketpulse.db import connect, upsert_products
+from marketpulse.pipeline import run_source
 from marketpulse.sources import books_toscrape, dummyjson
 from marketpulse.validation import validate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("marketpulse")
 
 SOURCES = {
@@ -20,23 +22,17 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"source tidak dikenal: {', '.join(sorted(unknown))}")
 
-    results: dict[str, str] = {}
+    failed = False
     with connect() as conn:
         for name in names:
             try:
-                items = SOURCES[name]()
-                valid, rejected = validate(items)
-                for r in rejected:
-                    log.warning("reject %s/%s: %s", r.product.source, r.product.external_id, r.reason)
-                n = upsert_products(conn, valid)
-                results[name] = f"ok ({n} rows, {len(rejected)} rejected)"
+                r = run_source(conn, name, SOURCES[name])
+                log.info("ringkasan %-16s run=%d fetched=%d rejected=%d loaded=%d",
+                         name, r.run_id, r.fetched, r.rejected, r.loaded)
             except Exception:
+                failed = True
                 log.exception("source %s gagal", name)
-                results[name] = "FAILED"
-
-    for name, status in results.items():
-        log.info("ringkasan %-16s %s", name, status)
-    if any(s == "FAILED" for s in results.values()):
+    if failed:
         raise SystemExit(1)
 
 

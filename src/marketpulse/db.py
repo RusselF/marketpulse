@@ -25,7 +25,10 @@ WHERE %(price)s::numeric IS DISTINCT FROM (
 """
 
 def connect() -> psycopg.Connection:
-    return psycopg.connect("postgresql://marketpulse:marketpulse@localhost:5433/marketpulse")
+    return psycopg.connect(
+        "postgresql://marketpulse:marketpulse@localhost:5433/marketpulse",
+        autocommit=True,
+    )
 
 
 def upsert_products(conn: psycopg.Connection, items: list[Product]) -> int:
