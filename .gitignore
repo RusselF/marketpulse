@@ -6,4 +6,4 @@ __pycache__/
 .env
 .idea/
 .vscode/
-"@ | Set-Content -Encoding utf8 .gitignore
+"@ | Set-Content -Encoding utf8 .gitignorestate.json
