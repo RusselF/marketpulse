@@ -19,15 +19,21 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"source tidak dikenal: {', '.join(sorted(unknown))}")
 
+    results: dict[str, str] = {}
     with connect() as conn:
         for name in names:
             try:
                 items = SOURCES[name]()
+                n = upsert_products(conn, items)
+                results[name] = f"ok ({n} rows)"
             except Exception:
-                log.exception("source %s gagal, lanjut ke source berikutnya", name)
-                continue
-            n = upsert_products(conn, items)
-            log.info("source=%s upserted=%d", name, n)
+                log.exception("source %s gagal", name)
+                results[name] = "FAILED"
+
+    for name, status in results.items():
+        log.info("ringkasan %-16s %s", name, status)
+    if any(s == "FAILED" for s in results.values()):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

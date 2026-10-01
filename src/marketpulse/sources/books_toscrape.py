@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from decimal import Decimal
 from urllib.parse import urljoin
 
@@ -73,5 +72,4 @@ def fetch_products(max_pages: int | None = None) -> list[Product]:
             products.extend(items)
             page += 1
             log.info("books_toscrape page=%d got=%d total=%d", page, len(items), len(products))
-            time.sleep(0.3)  # sementara; rate limiting yang benar di Phase 4
     return products
